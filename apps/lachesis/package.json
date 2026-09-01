@@ -9,6 +9,7 @@
     "tdev": "tauri dev",
     "tdev:cef": "tauri dev --features cef",
     "generate": "nuxt generate",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
     "preview": "npm run generate && wrangler dev",
     "postinstall": "nuxt prepare",
     "deploy": "npm run generate && wrangler deploy",

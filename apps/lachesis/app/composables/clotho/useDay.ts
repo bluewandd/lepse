@@ -1,12 +1,25 @@
 import { useMutation, useQuery } from '@tanstack/vue-query'
+import { accountMutationScope, accountQueryKey, accountQueryOptions } from '~/lib/auth-cache'
 
 export const useDay = (date: string = getClientDate()) => {
-  const { $api, $client, $queryClient } = useNuxtApp()
+  const { $api, $client, $queryClient, $authToken, $authScope, $authLifecycle } = useNuxtApp()
 
   // ─── Session ──────────────────────────────────────────────────────────────
 
-  const focusSessionQuery = useQuery($api.day.session.show.queryOptions({ params: { date } }))
-  const focusSession = computed(() => focusSessionQuery.data.value?.data)
+  const focusSessionQueryKey = accountQueryKey(
+    $api.day.session.show.queryKey({ params: { date } }),
+    $authScope
+  )
+  const focusSessionQuery = useQuery(
+    accountQueryOptions(
+      $api.day.session.show.queryOptions({ params: { date } }),
+      $authScope,
+      $authToken
+    )
+  )
+  const focusSession = computed(() =>
+    $authLifecycle.isIdentityValidated.value ? focusSessionQuery.data.value?.data : undefined
+  )
 
   const updateFocusSessionMutation = useMutation({
     mutationFn: ({
@@ -14,16 +27,20 @@ export const useDay = (date: string = getClientDate()) => {
     }: {
       body: Parameters<typeof $client.api.day.session.update>[0]['body']
     }) => $client.api.day.session.update({ params: { date }, body }),
-    onSuccess: (data) => {
-      $queryClient.setQueryData($api.day.session.show.queryKey({ params: { date } }), data)
+    onMutate: () => ({ accountScope: $authScope.value }),
+    onSuccess: (data, _variables, context) => {
+      if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
+      $queryClient.setQueryData(focusSessionQueryKey.value, data)
     },
   })
 
   const destroyFocusSessionMutation = useMutation({
     mutationFn: () => $client.api.day.session.destroy({ params: { date } }),
-    onSuccess: () => {
+    onMutate: () => ({ accountScope: $authScope.value }),
+    onSuccess: (_, _variables, context) => {
+      if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
       $queryClient.resetQueries({
-        queryKey: $api.day.session.show.queryKey({ params: { date } }),
+        queryKey: focusSessionQueryKey.value,
       })
     },
   })

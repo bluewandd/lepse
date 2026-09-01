@@ -25,6 +25,16 @@ yarn install
 bun install
 ```
 
+## Testing
+
+Run the focused Lachesis profile-query test from the repository root:
+
+```bash
+npm test --workspace=@lepse/lachesis
+```
+
+This is currently a local/manual check; the release workflow builds Lachesis but does not run this frontend test.
+
 ## Development Server
 
 Start the development server on `http://localhost:3000`:

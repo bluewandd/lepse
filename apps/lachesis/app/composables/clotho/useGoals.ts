@@ -1,16 +1,24 @@
 import { useMutation, useQuery } from '@tanstack/vue-query'
+import { accountMutationScope, accountQueryKey, accountQueryOptions } from '~/lib/auth-cache'
 
 export const useGoals = () => {
-  const { $api, $queryClient } = useNuxtApp()
+  const { $api, $queryClient, $authToken, $authScope, $authLifecycle } = useNuxtApp()
 
-  const goalsQuery = useQuery($api.goals.index.queryOptions())
-  const goals = computed(() => goalsQuery.data.value?.data)
+  const goalsQueryKey = accountQueryKey($api.goals.index.queryKey(), $authScope)
+  const goalsQuery = useQuery(
+    accountQueryOptions($api.goals.index.queryOptions(), $authScope, $authToken)
+  )
+  const goals = computed(() =>
+    $authLifecycle.isIdentityValidated.value ? goalsQuery.data.value?.data : undefined
+  )
 
   const createGoalMutation = useMutation(
     $api.goals.store.mutationOptions({
-      onSuccess: ({ data }) => {
+      onMutate: () => ({ accountScope: $authScope.value }),
+      onSuccess: ({ data }, _variables, context) => {
+        if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
         $queryClient.setQueryData(
-          $api.goals.index.queryKey(),
+          goalsQueryKey.value,
           (old) => old && { ...old, data: [...old.data.filter((i) => i.id !== data.id), data] }
         )
       },
@@ -19,9 +27,11 @@ export const useGoals = () => {
 
   const updateGoalMutation = useMutation(
     $api.goals.update.mutationOptions({
-      onSuccess: ({ data }) => {
+      onMutate: () => ({ accountScope: $authScope.value }),
+      onSuccess: ({ data }, _variables, context) => {
+        if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
         $queryClient.setQueryData(
-          $api.goals.index.queryKey(),
+          goalsQueryKey.value,
           (old) => old && { ...old, data: [...old.data.filter((i) => i.id !== data.id), data] }
         )
       },
@@ -30,9 +40,11 @@ export const useGoals = () => {
 
   const destroyGoalMutation = useMutation(
     $api.goals.destroy.mutationOptions({
-      onSuccess: (_, { params: { id } }) => {
+      onMutate: () => ({ accountScope: $authScope.value }),
+      onSuccess: (_, { params: { id } }, context) => {
+        if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
         $queryClient.setQueryData(
-          $api.goals.index.queryKey(),
+          goalsQueryKey.value,
           (old) => old && { ...old, data: old.data.filter((i) => i.id !== id) }
         )
       },

@@ -1,17 +1,25 @@
 import { useMutation, useQuery } from '@tanstack/vue-query'
+import { accountMutationScope, accountQueryKey, accountQueryOptions } from '~/lib/auth-cache'
 
 export const useTasks = () => {
-  const { $api, $queryClient } = useNuxtApp()
+  const { $api, $queryClient, $authToken, $authScope, $authLifecycle } = useNuxtApp()
 
-  const tasksQuery = useQuery($api.tasks.index.queryOptions())
-  const tasks = computed(() => tasksQuery.data.value?.data)
+  const tasksQueryKey = accountQueryKey($api.tasks.index.queryKey(), $authScope)
+  const tasksQuery = useQuery(
+    accountQueryOptions($api.tasks.index.queryOptions(), $authScope, $authToken)
+  )
+  const tasks = computed(() =>
+    $authLifecycle.isIdentityValidated.value ? tasksQuery.data.value?.data : undefined
+  )
   const focusedTaskId = useState<number>('focusedTaskId', () => -1)
 
   const createTaskMutation = useMutation(
     $api.tasks.store.mutationOptions({
-      onSuccess: ({ data }) => {
+      onMutate: () => ({ accountScope: $authScope.value }),
+      onSuccess: ({ data }, _variables, context) => {
+        if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
         $queryClient.setQueryData(
-          $api.tasks.index.queryKey(),
+          tasksQueryKey.value,
           (old) => old && { ...old, data: [...old.data.filter((i) => i.id !== data.id), data] }
         )
       },
@@ -20,9 +28,11 @@ export const useTasks = () => {
 
   const updateTaskMutation = useMutation(
     $api.tasks.update.mutationOptions({
-      onSuccess: ({ data }) => {
+      onMutate: () => ({ accountScope: $authScope.value }),
+      onSuccess: ({ data }, _variables, context) => {
+        if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
         $queryClient.setQueryData(
-          $api.tasks.index.queryKey(),
+          tasksQueryKey.value,
           (old) => old && { ...old, data: [...old.data.filter((i) => i.id !== data.id), data] }
         )
       },
@@ -31,9 +41,11 @@ export const useTasks = () => {
 
   const destroyTaskMutation = useMutation(
     $api.tasks.destroy.mutationOptions({
-      onSuccess: (_, { params: { id } }) => {
+      onMutate: () => ({ accountScope: $authScope.value }),
+      onSuccess: (_, { params: { id } }, context) => {
+        if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
         $queryClient.setQueryData(
-          $api.tasks.index.queryKey(),
+          tasksQueryKey.value,
           (old) => old && { ...old, data: old.data.filter((i) => i.id !== id) }
         )
       },
@@ -42,9 +54,11 @@ export const useTasks = () => {
 
   const attachGoalMutation = useMutation(
     $api.tasks.attachGoal.mutationOptions({
-      onSuccess: ({ data }) => {
+      onMutate: () => ({ accountScope: $authScope.value }),
+      onSuccess: ({ data }, _variables, context) => {
+        if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
         $queryClient.setQueryData(
-          $api.tasks.index.queryKey(),
+          tasksQueryKey.value,
           (old) => old && { ...old, data: [...old.data.filter((i) => i.id !== data.id), data] }
         )
       },
@@ -53,9 +67,11 @@ export const useTasks = () => {
 
   const detachGoalMutation = useMutation(
     $api.tasks.attachGoal.mutationOptions({
-      onSuccess: ({ data }) => {
+      onMutate: () => ({ accountScope: $authScope.value }),
+      onSuccess: ({ data }, _variables, context) => {
+        if (!$authLifecycle.isCurrentScope(accountMutationScope(context))) return
         $queryClient.setQueryData(
-          $api.tasks.index.queryKey(),
+          tasksQueryKey.value,
           (old) => old && { ...old, data: [...old.data.filter((i) => i.id !== data.id), data] }
         )
       },
